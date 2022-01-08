@@ -49,16 +49,78 @@ Alumnos:
    (type (t)))
    (Expr (e body)
          x
-         pr
-         c    
-         t
+         ;; pr c  t
          (const t c)
          (begin e* ... e)
          (primapp pr e* ...)
          (if e0 e1 e2 )
-         (lambda ([x t] ...) body* ... body)
-         (let ([x t e]) body* ... body)
-         (letrec ([x t e]) body* ... body)
-         (letfun ([x t e]) body* ... body)
+         (lambda ([x t]) body)
+         (let ([x t e]) body)
+         (letrec ([x t e]) body)
+         (letfun ([x t e]) body)
          (list e* ...)
          (e0 e1 )))
+
+;; Parser de l10
+(define-parser parse-L10 L10)
+
+
+
+
+;; EJERCICIO 1 =====================
+
+;;Primero definimos un nuevo lenguaje L11 para que las lambda sean multiparametricas
+(define-language L11
+    (extends L10)
+    (Expr (e body)
+          (- (lambda ([x t]) body))
+          (+ (lambda ([x* t*] ...) body))))
+;; Definimos su parser
+(define-parser parse-L11 L11)
+
+;; Definimos un pass auxiliar para identificar lambdas
+(define-pass lambda? : (L10 Expr) (e) -> * (bool)
+    (Expr : Expr (e) -> * (bool)
+        [(lambda ([,x ,t]) ,body) #t]
+        [else #f])
+    (Expr e))
+
+;; Funcion auxiliar que devuelve el body de una expresion lambda
+(define (get-body-lambda expr)
+    (nanopass-case (L10 Expr) expr
+        [(lambda ([,x ,t]) ,body) (get-body-lambda body)]
+        [else expr]))
+
+;; Funcion auxiliar para obtener la lista de asignaciones que se hacen en una expression lambda dada
+(define (get-assigments-lambda expr acum)
+    (nanopass-case (L10 Expr) expr
+        [(lambda ([,x ,t]) ,body)  (append (list (list x t)) (get-assigments-lambda body acum)) ]
+        [else acum]))
+
+(define (uncurry-aux expr)
+    (nanopass-case (L10 Expr) expr
+        [(lambda ([,x ,t]) ,body)
+            (parse-L11 `(lambda ,(get-assigments-lambda expr '()) ,(unparse-L11 (uncurry-aux (get-body-lambda expr)))))]
+        [(let ([,x ,t ,[e]]) ,[body])
+            (with-output-language (L11 Expr) `(let ([,x ,t ,e]) ,body))]
+        [(letrec ([,x ,t ,[e]]) ,[body])
+            (with-output-language (L11 Expr) `(letrec ([,x ,t ,e]) ,body))]
+        [(letfun ([,x ,t ,[e]]) ,[body])
+            (with-output-language (L11 Expr) `(letfun ([,x ,t ,e]) ,body))]
+        [(begin ,[e*] ... ,[e])
+            (with-output-language (L11 Expr) `(begin ,e* ... ,e))]
+        [(primapp ,pr ,[e*] ...)
+            (with-output-language (L11 Expr) `(primapp ,pr ,e* ...))]
+        [(if ,[e0] ,[e1] ,[e2])
+            (with-output-language (L11 Expr) `(if ,e0 ,e1 ,e2))]
+        [(const ,t ,c)
+            (with-output-language (L11 Expr) `(const ,t ,c))]
+        [(list ,[e*] ...)
+            (with-output-language (L11 Expr) `(list ,e* ...))]
+        [(,[e0] ,[e1])
+            (with-output-language (L11 Expr) `(,e0 ,e1))]
+        [else (parse-L11 (unparse-L10 expr))] ))
+
+(define-pass uncurry : L10 (ir) -> L11 ()
+    (Expr : Expr (ir) -> Expr ())
+        (uncurry-aux ir))
