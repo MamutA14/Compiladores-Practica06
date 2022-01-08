@@ -49,7 +49,6 @@ Alumnos:
    (type (t)))
    (Expr (e body)
          x
-         ;; pr c  t
          (const t c)
          (begin e* ... e)
          (primapp pr e* ...)
@@ -124,3 +123,45 @@ Alumnos:
 (define-pass uncurry : L10 (ir) -> L11 ()
     (Expr : Expr (ir) -> Expr ())
         (uncurry-aux ir))
+
+
+
+
+
+;; ==== EJERCICIO 2 ========================================
+
+(define (symbol-table-var-aux expr table)
+    (nanopass-case (L11 Expr) expr
+        [(let ([,x ,t ,[e] ]) ,body)
+            (begin (hash-set! table x (const t e))
+                    (symbol-table-var-aux body table))]
+        [(letrec ([,x ,t ,e]) ,body)
+            (begin (hash-set! (symbol-table-var-aux body table) x (list t e))
+                    (symbol-table-var-aux body table))]
+        [(letfun ([,x ,t ,e]) ,body)
+            (begin (hash-set! table x (const t e))
+                    (symbol-table-var-aux body table))]
+        [(,e0 ,e1)
+            (begin
+                (define h1 table)
+                (set! h1 (symbol-table-var-aux e1 h1))
+                (define h2 h1)
+                (set! h2 (symbol-table-var-aux e1 h2))
+                h2)]
+        [(primapp ,pr ,[e*] ...)
+            (let f ([e* e*]) (if (null? e*) table (symbol-table-var-aux (first e*) (f (rest e*)))))]
+        [(begin ,e* ... ,e)
+            (begin (map (lambda (e) (symbol-table-var-aux e table)) e*))]
+        [(if ,e0 ,e1 ,e2)
+            (begin
+                (symbol-table-var-aux e0 table)
+                (symbol-table-var-aux e1 table)
+                (symbol-table-var-aux e2 table))]
+        [(lambda ([,x* ,t*] ...) ,body) (symbol-table-var-aux body table)]
+        [(list ,e* ... ,e)
+            (begin (map (lambda (e) (symbol-table-var-aux e table)) e*) (symbol-table-var-aux e table))]
+        [else table] ))
+
+(define (symbol-table-var expr)
+    (nanopass-case (L11 Expr) expr
+                    [else (symbol-table-var-aux expr (make-hash))]))
