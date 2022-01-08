@@ -21,7 +21,24 @@ Alumnos:
 
 (define (constant? x) (or (integer? x) (char? x) (boolean? x)))
 
+;; Definimos el sistema de tipos
+(define (type? x) (or (b-type? x) (c-type? x)))
 
+(define (b-type? x) (memq x '(Bool Char Int List Lambda)))
+
+(define (c-type? x)
+    (if (list? x)
+        (let* ( [f (car x)] [s (cadr x)] [t (caddr x)])
+            (or (and (equal? f 'List) (equal? s 'of) (type? t))
+                (and (type? f) (equal? s '->) (type? t))))
+        #f))
+
+(define (arit? x) (memq x '(+ - * /)))
+
+(define (lst? x) (memq x '(length car cdr)))
+
+
+;; Definimos el lenguaje
 
 (require nanopass/base)
 (define-language L10
