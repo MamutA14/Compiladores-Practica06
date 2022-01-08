@@ -121,6 +121,18 @@ Alumnos:
     (Expr : Expr (ir) -> Expr ())
         (uncurry-aux ir))
 
+;;Ejemplos Ejercicio 1
+(printf "\nEjemplos Ejercicio 1:\n")
+(printf "\nInput: (uncurry (parse-L10 '(lambda ([x Int]) (lambda ([y Int]) (lambda ([z Int]) (primapp + x y z))))))" )
+(printf "\nOutput:")
+(uncurry (parse-L10  '(lambda ([x Int]) (lambda ([y Int]) (lambda ([z Int]) (primapp + x y z))))))
+
+(printf "\nInput: (uncurry (parse-L10 '(lambda ([x Int]) (lambda ([y Int]) (letfun ([foo (Int → Int → Int) (lambda ([z Int]) (lambda ([w Int])
+(primapp + x y z w)))]) ((foo (const Int 4)) (const Int 2)))))))" )
+(printf "\nOutput:")
+(uncurry (parse-L10 '(lambda ([x Int]) (lambda ([y Int]) (letfun ([foo (Int -> Int -> Int) (lambda ([z Int]) (lambda ([w Int])
+(primapp + x y z w)))]) ((foo (const Int 4)) (const Int 2)))))))
+
 ;; EJERCICIO 2 ========================================
 
 (define (symbol-table-var-aux expr table)
@@ -160,6 +172,17 @@ Alumnos:
     (nanopass-case (L11 Expr) expr
                     [else (symbol-table-var-aux expr (make-hash))]))
 
+;;Ejemplos Ejercicio 2
+(printf "\nEjemplos Ejercicio 2:\n")
+(printf "\nInput: (symbol-table-var (parse-L11 '(letrec ([x Int (const Int 5)]) (letrec ([y Int (const Int 4)]) (primapp + x y (const Int 2))))))" )
+(printf "\nOutput:")
+(symbol-table-var (parse-L11 '(letrec ([x Int (const Int 5)]) (letrec ([y Int (const Int 4)]) (primapp + x y (const Int 2))))))
+
+(printf "\nInput: (symbol-table-var (parse-L11 '(if (const Bool #t) (const Int 3) (letfun (foo (Int → Int → Int) (lambda ([x Int]
+[y Int]) (primapp + x y))]) ((foo (const Int 1)) (const Int 2))))))" )
+(printf "\nOutput:")
+(symbol-table-var (parse-L11 '(if (const Bool #t) (const Int 3) (letfun ([foo (Int -> Int -> Int) (lambda ([x Int] [y Int]) (primapp + x y))]) ((foo (const Int 1)) (const Int 2))))))
+
 ;; EJERCICIO 3 =====================
 
 (define-language L12
@@ -182,7 +205,14 @@ Alumnos:
         [(letrec ([,x ,t ,e]) ,[body]) `(letrec ,x ,body)]
         [(letrec ([,x ,t ,e]) ,[body]) `(letfun ,x ,body)])
   (values (Expr ir) (symbol-table-var ir)))
-;;Ejemplos
+
+;;Ejemplos Ejercicio 3
+(printf "\nEjemplos Ejercicio 3:\n")
 (printf "\nInput: (assigment (parse-L11 '(letrec ([foo (Int -> Int) (lambda ([x Int]) x)]) (foo (const Int 5)))))" )
 (printf "\nOutput:")
 (assigment (parse-L11 '(letrec ([foo (Int -> Int) (lambda ([x Int]) x)]) (foo (const Int 5)))))
+
+(printf "\nInput: (assigment (parse-L11 '(let ([x Int (primapp * (const Int 40) (const Int 20))]) (primapp cdr x))))" )
+(printf "\nOutput:")
+(assigment (parse-L11 '(let ([x Int (primapp * (const Int 40) (const Int 20))]) (primapp cdr x))))
+
