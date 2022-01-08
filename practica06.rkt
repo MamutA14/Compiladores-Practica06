@@ -10,9 +10,9 @@ Alumnos:
   No.cuenta: 316020361
 |#
 
+
 #lang nanopass
 
-(define fun-count 0)
 
 ;; Predicados para los terminales
 (define (variable? x) (and (symbol? x) (not (primitive? x)) (not (constant? x))) )
@@ -215,4 +215,137 @@ Alumnos:
 (printf "\nInput: (assigment (parse-L11 '(let ([x Int (primapp * (const Int 40) (const Int 20))]) (primapp cdr x))))" )
 (printf "\nOutput:")
 (assigment (parse-L11 '(let ([x Int (primapp * (const Int 40) (const Int 20))]) (primapp cdr x))))
+
+
+
+
+
+;; ==== EJERCICIO 4 ================================
+
+
+;; Definimos el lenguaje
+(define-language L13
+    (extends L12)
+    (Expr (e body)
+        (- (list e* ...))
+        (+ (array c t [e* ...]))))
+
+(define-parser parse-L13 L13)
+
+
+;; Funcion que dada una lista toma el primer elemento y aplica sobre ese elemento el algoritmo J
+(define (J-aux x)
+    (nanopass-case (L12 Expr) x
+        [(list ,e* ... ,e) (J e '())] ))
+
+
+;; Pass que pasa las listas a arreglos
+(define-pass list-to-array : L12 (ir) -> L13 ()
+ (Expr : Expr (ir) -> Expr()
+    [ (list ,[e*] ...)
+        (let ([t (J-aux ir)])
+        `(array ,(length e*)  ,t  [,e* ...] )) ] ))
+
+
+
+
+
+
+
+
+;; ================== Algoritmo auxiliar. Algoritmo J ===============================
+
+
+
+;; PRIMERO DEFINIREMOS UNAS FUNCIONES AUXILIARES
+
+
+
+;; Definimos la funcion unify
+(define (unify t1 t2)
+    (if (and (type? t1) (type? t2))
+        (cond
+            [(equal? t1 t2) #t]
+            [(and (equal? 'List t1) (list? t2))  (equal? (car t2) 'List) ]
+            [(and (equal? 'List t2) (list? t1))  (equal? (car t1) 'List) ]
+            [(and (list? t1) (list? t2)) (and (unify (car t1) (car t2)))]
+            [else #f])
+        (error "Se esperaban 2 tipos")))
+
+;; Unas funciones auxiliares para realizar la busqueda de variables en el ambiente
+(define (find-type x env)
+    (cond
+        [(empty? env) (error "Error, variable no esta en el ambiente")]
+        [(eq? (caar env) x) (cadar env)] ;; caso cuando el ambiente tiene la forma '( (x t) ... ) , devolvemos t
+        [else (find-type x (cdr env))] ))  ;; llamada recursiva sobre el resto del ambiente si no coincide
+
+
+;; Funcion que dada una variable x, un tipo t y un ambiente env devuelve un nuevo ambiente
+;; resultado de agregar la tupla (x,t) al ambiente
+(define (add-var-to-env x t env)
+    (list (list x t) env))
+
+;; Funcion que verifica que dada una lista de tipos args, estos tipos sean los correctos para la operacion pr
+(define (check-args-types pr args )
+    (case pr
+        [(+ - * /) (andmap (lambda (x) (equal? x 'Int)) args) ]  ;; Estas primitivas son sobre enteros
+        [(car cdr length) (andmap (lambda (x) (and (list? x) (equal? (car x) 'List))) args) ] ))  ;; Estas operaciones van sobre listas
+
+
+
+
+;; AHORA IMPLEMENTAMOS LA FUNCION J
+(define (J e env)
+    (nanopass-case (L12 Expr) e
+        [,x  (find-type x env)]         ;; para variables buscamos directamente en el ambiente
+        [(const ,t ,c ) t]              ;; para constantes tenemos el tipo especificado en el const
+        [(begin ,e* ... ,e) (J e env)]   ;; Retornamos el tipo de la ultima exprexion
+        [(primapp ,pr ,e* ...)
+            (if (check-args-types pr  (map (lambda (x) (J x env)) e*) )
+                (case pr
+                    [(+ - * / length) 'Int]
+                    [(car) (caddr (car  (map (lambda (x) (J x env)) e*)))]
+                    [(cdr) (car  (map (lambda (x) (J x env)) e*) )])
+                (error 'J "Los tipos de ~a no son compatbles para la operacion ~a" e* pr))]
+
+        ;; Para el if verificamos que el tipo de e0 sea Bool, y los tipos de e1 y e2 sean los mismos
+        [(if ,e0 ,e1 ,e2)
+            (if (and (equal?  (J e0 env) 'Bool)  (unify (J e1 env) (J e2 env)))
+                (J e1 env)
+                (error 'J "El tipo de ~a debe ser Bool. Y el tipo de ~a debe ser igual al de ~a " e0 e1 e2) )]
+
+        ;; Para las lambdas el tipo es t -> type_of_body
+        [(lambda ([,x ,t]) ,body)  (list t '->  (J body (add-var-to-env x t env)))]
+
+        ;; para expresiones let devolvemos el tipo del body agregando (x t) al ambiente
+        [(let ,x ,body)
+                (J body env)]
+
+        ;; para expresiones letrec devolvemos el tipo del body agregando (x t) al ambiente
+        [(letrec ,x ,body)
+                (J body env)]
+
+        ;; Para expresiones letrec devolvemos el tipo del body agregando (x t) al ambiente
+        [(letfun ,x,body)
+                (J body env)]
+
+        [(list ,e* ...)
+            ;; si es la lista vacia devoldemos List
+            (if (empty? e*)
+                'List
+                ;; Calculamos los tipos de los elementos
+                (let* ([types (map (lambda (x) (J x env)) e*) ]
+                        [t1 (car types)])
+                    ;; Si todos los mismos son los mismos deovlvemos List of T1
+                    (if (andmap (lambda (x) (unify x t1)) types)
+                        (list 'List 'of t1)
+                        (error 'J "Los elementos de la lista ~a no son del mismo tipo." e*)))  )]
+
+        [(,e0 ,e1)
+            (let ([t0 (J e0 env)] [t1 (J e1 env)])
+                (if (and (list? t0) (equal? (cadr t0) '->) (unify (car t0) t1))  ;; verificamos que el tipo de e0 sea T1->T2 y el de e1 sea T1
+                    (caddr t0)                                                   ;; Al aplicar la funcion se devuelve T2
+                    (error 'J "El tipo de ~a no es compatible con el de ~a  para realizar la aplicacion de funcion." e0 e1) )  )]
+        [else (error 'J "La expresion no corresponde al lenguaje")] ))
+
 
