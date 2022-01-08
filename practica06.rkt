@@ -133,13 +133,13 @@ Alumnos:
 (define (symbol-table-var-aux expr table)
     (nanopass-case (L11 Expr) expr
         [(let ([,x ,t ,[e] ]) ,body)
-            (begin (hash-set! table x (const t e))
+            (begin (hash-set! table x (cons t e))
                     (symbol-table-var-aux body table))]
         [(letrec ([,x ,t ,e]) ,body)
-            (begin (hash-set! (symbol-table-var-aux body table) x (list t e))
+            (begin (hash-set! (symbol-table-var-aux body table) x (cons t e))
                     (symbol-table-var-aux body table))]
         [(letfun ([,x ,t ,e]) ,body)
-            (begin (hash-set! table x (const t e))
+            (begin (hash-set! table x (cons t e))
                     (symbol-table-var-aux body table))]
         [(,e0 ,e1)
             (begin
