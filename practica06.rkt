@@ -39,7 +39,6 @@ Alumnos:
 
 
 ;; Definimos el lenguaje
-
 (require nanopass/base)
 (define-language L10
   (terminals
@@ -63,9 +62,6 @@ Alumnos:
 ;; Parser de l10
 (define-parser parse-L10 L10)
 
-
-
-
 ;; EJERCICIO 1 =====================
 
 ;;Primero definimos un nuevo lenguaje L11 para que las lambda sean multiparametricas
@@ -74,6 +70,7 @@ Alumnos:
     (Expr (e body)
           (- (lambda ([x t]) body))
           (+ (lambda ([x* t*] ...) body))))
+
 ;; Definimos su parser
 (define-parser parse-L11 L11)
 
@@ -124,11 +121,7 @@ Alumnos:
     (Expr : Expr (ir) -> Expr ())
         (uncurry-aux ir))
 
-
-
-
-
-;; ==== EJERCICIO 2 ========================================
+;; EJERCICIO 2 ========================================
 
 (define (symbol-table-var-aux expr table)
     (nanopass-case (L11 Expr) expr
@@ -162,6 +155,34 @@ Alumnos:
             (begin (map (lambda (e) (symbol-table-var-aux e table)) e*) (symbol-table-var-aux e table))]
         [else table] ))
 
+;; Funcion que genera la tabla de simbolos de una expresión
 (define (symbol-table-var expr)
     (nanopass-case (L11 Expr) expr
                     [else (symbol-table-var-aux expr (make-hash))]))
+
+;; EJERCICIO 3 =====================
+
+(define-language L12
+  (extends L11)
+  (Expr (e body)
+        (- (let ([x t e]) body)
+           (letrec ([x t e]) body)
+           (letfun ([x t e]) body))
+        (+ (let x body)
+           (letrec x body)
+           (letfun x body))))
+
+;; Parser L12
+(define-parser parse-L12 L12)
+
+;; Función que elimina el valor asociado a cada identificador y su tipo
+(define-pass assigment : L11 (ir) -> L12 (hash)
+  (Expr : Expr (ir) -> Expr ()
+        [(let ([,x ,t ,e]) ,[body]) `(let ,x ,body)]
+        [(letrec ([,x ,t ,e]) ,[body]) `(letrec ,x ,body)]
+        [(letrec ([,x ,t ,e]) ,[body]) `(letfun ,x ,body)])
+  (values (Expr ir) (symbol-table-var ir)))
+;;Ejemplos
+(printf "\nInput: (assigment (parse-L11 '(letrec ([foo (Int -> Int) (lambda ([x Int]) x)]) (foo (const Int 5)))))" )
+(printf "\nOutput:")
+(assigment (parse-L11 '(letrec ([foo (Int -> Int) (lambda ([x Int]) x)]) (foo (const Int 5)))))
