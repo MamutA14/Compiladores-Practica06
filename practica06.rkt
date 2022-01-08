@@ -9,7 +9,20 @@ Alumnos:
 - Sierra Casiano Vladimir
   No.cuenta: 316020361
 |#
+
 #lang nanopass
+
+(define fun-count 0)
+
+;; Predicados para los terminales
+(define (variable? x) (and (symbol? x) (not (primitive? x)) (not (constant? x))) )
+
+(define (primitive? x) (memq x '(+ - * / length car cdr)))
+
+(define (constant? x) (or (integer? x) (char? x) (boolean? x)))
+
+
+
 (require nanopass/base)
 (define-language L10
   (terminals
